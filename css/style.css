@@ -1,0 +1,350 @@
+/* Greta OS — tema ispirato ad Ubuntu (Yaru/plymouth) */
+
+:root {
+  --aubergine: #2c001e;
+  --aubergine-2: #3d0a2e;
+  --orange: #e95420;
+  --orange-dim: #c7401a;
+  --ink: #111111;
+  --panel: #1c1c1e;
+  --text: #f4f2f1;
+  --muted: #b8b2b0;
+  --stage: #0c0c0d;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--text);
+  font-family: "Ubuntu", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+[hidden] { display: none !important; }
+
+button, select, input { font: inherit; color: inherit; }
+
+/* ===================== splash ===================== */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 38%, #4a1236 0%, var(--aubergine) 55%, #17000f 100%);
+  transition: opacity 0.4s ease;
+}
+#splash.fadeout { opacity: 0; pointer-events: none; }
+
+.splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px;
+  max-width: 560px;
+}
+
+.logo-mark { position: relative; width: 106px; height: 106px; display: grid; place-items: center; }
+.logo-mark::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 3px solid rgba(233, 84, 32, 0.25);
+  border-top-color: var(--orange);
+  animation: spin 1.1s linear infinite;
+}
+#splash.error .logo-mark::after { animation: none; border-top-color: #d32f2f; border-color: rgba(211,47,47,.3); border-top-color:#d32f2f; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.wordmark {
+  margin-top: 18px;
+  font-size: 42px;
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+.wordmark strong { font-weight: 600; }
+.tagline { margin-top: 6px; color: var(--muted); font-size: 14px; }
+
+.boot-progress { width: 100%; max-width: 420px; margin-top: 34px; }
+.boot-progress .bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--orange-dim), var(--orange));
+  transition: width 0.25s ease;
+}
+#splash.error #progress-bar { background: #d32f2f; }
+#progress-text { margin-top: 12px; font-size: 14px; }
+#progress-sub { margin-top: 4px; font-size: 12px; color: var(--muted); min-height: 15px; word-break: break-all; }
+
+.splash-footer {
+  position: absolute;
+  bottom: 18px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  padding: 0 16px;
+}
+
+/* ===================== pulsanti / controlli ===================== */
+.btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.17); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn.primary { background: var(--orange); border-color: transparent; font-weight: 500; }
+.btn.primary:hover:not(:disabled) { background: #ff6b3d; }
+.btn.icon { padding: 6px 0; width: 30px; text-align: center; }
+.btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+/* ===================== desktop layout ===================== */
+#desktop {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, var(--aubergine-2), var(--aubergine));
+  border-bottom: 1px solid rgba(233, 84, 32, 0.55);
+}
+
+.brand { font-weight: 600; letter-spacing: 0.4px; display: flex; align-items: center; gap: 8px; }
+.brand-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 3px solid var(--orange);
+  display: inline-block;
+}
+
+.distro-group { display: flex; align-items: center; gap: 8px; }
+
+#distro-select {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  max-width: 320px;
+  color-scheme: dark;
+}
+
+.toolbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.toolbar .sep { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.22); margin: 0 3px; }
+
+.sysinfo { margin-left: auto; display: flex; align-items: center; gap: 16px; font-size: 13px; }
+.net { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); cursor: default; }
+.net-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #555;
+  box-shadow: none;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.net-dot.on { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+#clock { font-variant-numeric: tabular-nums; }
+
+/* ===================== dock ===================== */
+#body-row { flex: 1; display: flex; min-height: 0; }
+
+#dock {
+  width: 66px;
+  background: rgba(44, 0, 30, 0.85);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+}
+.dock-item {
+  width: 54px;
+  padding: 8px 0 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.dock-item svg { width: 24px; height: 24px; }
+.dock-item span { font-size: 9.5px; }
+.dock-item:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.dock-item.active { background: rgba(233, 84, 32, 0.25); color: var(--orange); }
+
+/* ===================== schermo ===================== */
+#stage {
+  flex: 1;
+  min-width: 0;
+  background: var(--stage);
+  display: flex;
+}
+#screen_holder {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  overflow: hidden;
+}
+/* VM attiva in modalità grafica: un solo puntatore, quello della guest.
+   La classe .gfx è aggiornata da app.js (observer su screen_container). */
+body.vm-on #screen_holder.gfx { cursor: none; }
+body.vm-on #screen_holder .fs-exit { cursor: pointer; }
+
+#screen_container {
+  background: #000;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 12px 44px rgba(0, 0, 0, 0.6);
+}
+#screen_container .screen-text,
+#screen_container > div {
+  white-space: pre;
+  font: 14px monospace;
+  line-height: 14px;
+  color: #d7d7d7;
+}
+#screen_container canvas { display: block; image-rendering: pixelated; }
+
+#stage-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+  white-space: nowrap;
+}
+#stage-hint.used { opacity: 0; }
+
+/* ===================== schermo intero ===================== */
+.fs-entry {
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 12px;
+  font-weight: 700;
+}
+.fs-entry:hover:not(:disabled) { background: var(--orange); border-color: transparent; }
+
+#screen_holder:fullscreen,
+#screen_holder:-webkit-full-screen {
+  background: #000;
+  padding: 6px;
+}
+
+.fs-exit {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(233, 84, 32, 0.75);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  transition: background 0.15s ease, opacity 0.2s ease;
+}
+.fs-exit:hover { background: var(--orange); border-color: transparent; }
+.fs-exit[hidden] { display: none !important; }
+
+/* ===================== statusbar ===================== */
+#statusbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 14px;
+  background: var(--panel);
+  border-top: 2px solid var(--orange);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+#status-left { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===================== modale ===================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal {
+  background: #232326;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  width: min(720px, 100%);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.modal-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.modal-body { padding: 6px 20px 20px; overflow-y: auto; line-height: 1.55; }
+.modal-body h3 { color: var(--orange); font-size: 14.5px; margin: 20px 0 6px; }
+.modal-body ul { padding-left: 20px; margin: 6px 0; }
+.modal-body code { background: rgba(255, 255, 255, 0.09); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+
+/* ===================== responsive ===================== */
+@media (max-width: 980px) {
+  #dock { display: none; }
+  #topbar { gap: 8px; }
+  .toolbar .btn { padding: 5px 9px; font-size: 12px; }
+  #distro-select { max-width: 210px; }
+}
+@media (max-width: 640px) {
+  .brand, .sysinfo { display: none; }
+  #stage-hint { max-width: 92%; white-space: normal; text-align: center; }
+}

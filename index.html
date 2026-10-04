@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greta OS — desktop Linux reale nel browser</title>
+<meta name="description" content="Vera distribuzione Linux con desktop grafico, emulata in x86 (WebAssembly) e avviata direttamente nel browser.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23E95420'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<!-- ============ SPLASH / BOOT ============ -->
+<div id="splash">
+  <div class="splash-inner">
+    <div class="logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 64 64" width="86" height="86">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#E95420" stroke-width="5"/>
+        <circle cx="32" cy="32" r="13" fill="none" stroke="#E95420" stroke-width="5"/>
+        <circle cx="32" cy="7"  r="5.5" fill="#E95420"/>
+        <circle cx="10" cy="45" r="5.5" fill="#E95420"/>
+        <circle cx="54" cy="45" r="5.5" fill="#E95420"/>
+      </svg>
+    </div>
+    <div class="wordmark">Greta&nbsp;OS</div>
+    <div class="tagline">vera distribuzione Linux · emulazione x86 nel browser</div>
+
+    <div class="boot-progress">
+      <div class="bar"><div id="progress-bar"></div></div>
+      <div id="progress-text">Inizializzazione…</div>
+      <div id="progress-sub"></div>
+      <button id="btn-retry" class="btn primary" hidden>Riprova</button>
+    </div>
+
+    <div class="splash-log" id="splash-log" hidden></div>
+  </div>
+  <div class="splash-footer">powered by v86 (WebAssembly) · immagini: i.copy.sh · rete: relay.widgetry.org</div>
+</div>
+
+<!-- ============ DESKTOP ============ -->
+<div id="desktop" hidden>
+
+  <header id="topbar">
+    <div class="brand"><span class="brand-dot"></span> Greta OS</div>
+
+    <div class="distro-group">
+      <select id="distro-select" title="Distribuzione da avviare"></select>
+      <button id="btn-boot" class="btn primary" title="Avvia la distro selezionata">Avvia</button>
+    </div>
+
+    <div class="toolbar" role="toolbar" aria-label="Controlli emulatore">
+      <button id="btn-pause"  class="btn" title="Metti in pausa / riprendi">Pausa</button>
+      <button id="btn-restart" class="btn" title="Riavvia la macchina">Riavvia</button>
+      <button id="btn-cad"    class="btn" title="Invia Ctrl+Alt+Del">Ctrl+Alt+Del</button>
+      <span class="sep"></span>
+      <button id="btn-zoom-out" class="btn icon" title="Riduci scala">−</button>
+      <button id="btn-zoom-fit" class="btn" title="Adatta alla finestra">Adatta</button>
+      <button id="btn-zoom-in"  class="btn icon" title="Aumenta scala">+</button>
+      <span class="sep"></span>
+      <button id="btn-screenshot" class="btn" title="Salva uno screenshot PNG">Screenshot</button>
+      <span class="sep"></span>
+      <button id="btn-local-iso" class="btn" title="Avvia una ISO/IMG locale (es. Ubuntu i386)">ISO locale…</button>
+      <button id="btn-info" class="btn" title="Come funziona">Info</button>
+    </div>
+
+    <div class="sysinfo">
+      <span id="net-indicator" class="net" title="Rete guest (relè websocket)"><span class="net-dot"></span> rete</span>
+      <span id="clock">--:--</span>
+    </div>
+
+    <button id="btn-fullscreen" class="btn fs-entry" title="Allarga a tutto schermo" aria-label="Schermo intero">⛶</button>
+  </header>
+
+  <div id="body-row">
+    <nav id="dock" aria-label="Scorciatoie">
+      <button class="dock-item" id="dock-terminal" title="Terminale Linux (console)">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 9l3 3-3 3M12 15h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Terminale</span>
+      </button>
+      <button class="dock-item" id="dock-desktop" title="Desktop grafico (Arch Linux)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 20h8M12 17v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span>Desktop</span>
+      </button>
+      <button class="dock-item" id="dock-iso" title="Avvia una ISO/IMG dal disco">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>
+        <span>ISO</span>
+      </button>
+      <button class="dock-item" id="dock-info" title="Informazioni">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 10.5V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.2" fill="currentColor"/></svg>
+        <span>Info</span>
+      </button>
+    </nav>
+
+    <main id="stage">
+      <div id="screen_holder">
+        <div id="screen_container">
+          <div class="screen-text"></div>
+          <canvas style="display:none"></canvas>
+        </div>
+        <div id="stage-hint">Clicca per sincronizzare il puntatore con la VM · ESC per liberarlo</div>
+        <button id="btn-fs-exit" class="fs-exit" hidden title="Torna alla finestra del browser">
+          <span aria-hidden="true">⤡</span> Torna alla finestra
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <footer id="statusbar">
+    <span id="status-left">Pronto</span>
+    <span id="status-right">v86 · WebAssembly · CPU x86 reale</span>
+  </footer>
+</div>
+
+<!-- ============ MODAL INFO ============ -->
+<div id="info-modal" class="modal-backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="info-title">
+    <div class="modal-head">
+      <h2 id="info-title">Greta OS — come funziona</h2>
+      <button id="info-close" class="btn icon" title="Chiudi">✕</button>
+    </div>
+    <div class="modal-body">
+      <p><strong>Questa è una vera distribuzione Linux.</strong> Nel browser gira un emulatore x86
+      completo (<em>v86</em>, compilato in WebAssembly): CPU, scheda video, dischi e rete sono
+      emulati a livello hardware, quindi il kernel Linux e il desktop graphico avviano per davvero —
+      non è una finta interfaccia web.</p>
+
+      <h3>Distro disponibili</h3>
+      <ul>
+        <li><strong>Arch Linux (desktop grafico)</strong> — ripristino di una sessione grafica già avviata: parte in pochi secondi.</li>
+        <li><strong>Arch Linux (avvio completo)</strong> — boot a freddo del kernel + root su filesystem 9p.</li>
+        <li><strong>TinyCore 11</strong> e <strong>SliTaz</strong> — desktop leggeri (ISO da ~20–56 MB).</li>
+        <li><strong>Damn Small Linux</strong> — desktop ultra-leggero.</li>
+        <li><strong>Linux (terminale)</strong> — console testuale, senza interfaccia grafica.</li>
+      </ul>
+
+      <h3>E Ubuntu?</h3>
+      <p>Non esiste un'immagine Ubuntu desktop ospitabile online per questo scopo: le ISO Ubuntu
+      i386 con Unity pesano ~1,6 GB, non sono servite con i permessi CORS e sarebbero comunque
+      troppo lente sotto emulazione in browser. Puoi comunque <strong>caricare una tua ISO/IMG</strong>
+      (pulsante <em>ISO locale…</em>, funziona anche la tua Ubuntu i386 scaricata da ubuntu.com)
+      e avviarla qui dentro — con un'avvertenza: immagini grandi = lunghi tempi di caricamento e
+      emulazione lenta.</p>
+
+      <h3>Il tuo computer (rilevato dal browser)</h3>
+      <ul id="host-info">
+        <li>Apri questo pannello dopo aver avviato una distro per vedere l'hardware rilevato.</li>
+      </ul>
+
+      <h3>Immagini salvate in locale</h3>
+      <p id="cache-info">…calcolo della cache…</p>
+      <p><button id="btn-cache-clear" class="btn">Svuota la cache delle ISO</button></p>
+
+      <h3>Rete e dati</h3>
+      <p>Le immagini delle distro sono scaricate da <code>i.copy.sh</code> (host pubblico del progetto
+      v86/copy.sh). La rete della VM passa da un relè WebSocket pubblico
+      (<code>relay.widgetry.org</code>): il traffico guest è instradato lì, quindi non usare la VM
+      per dati sensibili. Nessun dato del tuo computer viene caricato, salvo la ISO che scegli
+      esplicitamente di avviare.</p>
+
+      <h3>Scorciatoi</h3>
+      <ul>
+        <li>Clic sullo schermo = puntatore sincronizzato con la VM (pointer lock); <strong>ESC</strong> lo libera.</li>
+        <li><strong>Pausa</strong> ferme la CPU, <strong>Riavvia</strong> ricrea la macchina.</li>
+        <li><strong>Screenshot</strong> salva un PNG dello schermo guest.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".iso,.img,.bin,.raw,.vhd,.dsk,.qcow2" hidden>
+
+<script src="vendor/libv86.js"></script>
+<script src="js/profiles.js"></script>
+<script src="js/cache.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
