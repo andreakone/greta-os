@@ -11,6 +11,7 @@ const S = {
   customProfile: null,
   running: false,
   bootSeq: 0,
+  kbdRetry: 0,
   scale: 1,
   fitMode: true,
   lastProgress: { index: 0, count: 0, frac: 0 },
@@ -116,6 +117,7 @@ async function shutdown() {
   const emu = S.emu;
   S.emu = null;
   S.running = false;
+  net_reset();
   document.body.classList.remove("vm-on");
   try { document.exitPointerLock(); } catch (e) {}
   if (emu) {
@@ -134,6 +136,7 @@ async function boot(profile) {
   }
   await shutdown();
   const seq = S.bootSeq;
+  if (!S.profile || S.profile.id !== profile.id) S.kbdRetry = 0;
   S.profile = profile;
   S.fitMode = true;
   S.lastProgress = { index: 0, count: 0, frac: 0 };
@@ -200,6 +203,7 @@ function attach_listeners(emu, seq) {
     update_ui();
     if (S.fitMode) setTimeout(fit_scale, 150);
     auto_type(emu, S.profile, seq);
+    check_kbd_init(emu, seq);
   });
 
   on("emulator-stopped", () => {
@@ -209,7 +213,25 @@ function attach_listeners(emu, seq) {
   });
 
   on("eth-transmit-end", net_blink);
-  on("eth-receive-end", net_blink);
+  on("eth-receive-end", net_rx);
+}
+
+/* Alcune immagini (es. linux.iso) perdono la race di inizializzazione
+   dell'i8042 sotto carico: il kernel stampa "No controller found" e la
+   tastiera PS/2 resta morta. Se succede, un solo riavvio automatico. */
+function check_kbd_init(emu, seq) {
+  setTimeout(() => {
+    if (seq !== S.bootSeq || S.emu !== emu || !S.running || S.kbdRetry) return;
+    let txt = "";
+    try {
+      const sa = emu.screen_adapter;
+      if (sa && sa.get_text_screen) txt = sa.get_text_screen().join("\n");
+    } catch (e) { return; }
+    if (!/No controller found/.test(txt)) return;
+    S.kbdRetry = 1;
+    $("status-left").textContent = "Tastiera non inizializzata — riavvio…";
+    boot(S.profile);
+  }, 8000);
 }
 
 function auto_type(emu, profile, seq) {
@@ -233,14 +255,38 @@ function fmt_bytes(n) {
   return n + " B";
 }
 
-/* ================= rete ================= */
+/* ================= rete =================
+   Il pallino è grigio finché la guest non riceve nulla: non significa
+   "rete assente", ma "nessun pacchetto ancora". Con il primo frame in
+   arrivo dal relè (DHCP/risposte) diventa verde; lampeggia arancione
+   su ogni pacchetto in transito. */
 let net_timer = 0;
+let net_rx_total = 0;
+function net_reset() {
+  net_rx_total = 0;
+  clearTimeout(net_timer);
+  const dot = document.querySelector("#net-indicator .net-dot");
+  if (dot) dot.classList.remove("on", "ok");
+  const ind = $("net-indicator");
+  if (ind) ind.title = "Rete guest (relè websocket) — in attesa di traffico";
+}
 function net_blink() {
   const dot = document.querySelector("#net-indicator .net-dot");
   if (!dot) return;
   dot.classList.add("on");
   clearTimeout(net_timer);
   net_timer = setTimeout(() => dot.classList.remove("on"), 180);
+}
+function net_rx(bytes) {
+  net_rx_total += Number(bytes) || 0;
+  if (!net_rx_total) return;
+  const dot = document.querySelector("#net-indicator .net-dot");
+  if (dot && !dot.classList.contains("ok")) {
+    dot.classList.add("ok");
+    const ind = $("net-indicator");
+    if (ind) ind.title = "Rete guest connessa (relè websocket) — verde = traffico ricevuto";
+  }
+  net_blink();
 }
 
 /* ================= UI topbar ================= */

@@ -5,6 +5,7 @@
   --aubergine-2: #3d0a2e;
   --orange: #e95420;
   --orange-dim: #c7401a;
+  --green: #3fb950;
   --ink: #111111;
   --panel: #1c1c1e;
   --text: #f4f2f1;
@@ -166,6 +167,7 @@ button, select, input { font: inherit; color: inherit; }
   box-shadow: none;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
+.net-dot.ok { background: var(--green); box-shadow: 0 0 8px rgba(63, 185, 80, 0.7); }
 .net-dot.on { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
 #clock { font-variant-numeric: tabular-nums; }
 

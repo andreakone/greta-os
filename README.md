@@ -50,8 +50,12 @@ greta/
 - **Immagini**: le ISO/IMG vengono scaricate da `i.copy.sh` (host pubblico del progetto v86/copy.sh)
   durante l'avvio. L'host protegge gli hotlink: la pagina usa `<meta name="referrer" content="no-referrer">`
   per farsi accettare — non rimuoverlo.
-- **Rete**: la scheda di rete della VM (`ne2k`) si collega al relè WebSocket pubblico
+- **Rete**: la scheda di rete della VM si collega al relè WebSocket pubblico
   `wss://relay.widgetry.org/`; il traffico guest passa da lì, quindi non usare la VM per dati sensibili.
+  Verificato dal vivo su Arch: DHCP (indirizzo `10.5.x`), `ping 1.1.1.1` senza perdita e `wget`
+  di `example.com` funzionano tutti attraverso il relè. Il pallino in alto a destra è:
+  **grigio** = nessun pacchetto ancora (non significa "rete assente"), **verde** = la guest ha
+  ricevuto traffico (relè attivo), **lampeggio arancione** = pacchetto in transito.
 - **Cache ISO**: le immagini scaricate vengono salvate nel browser (IndexedDB, tetto ~1,2 GB):
   i riavvii successivi partono senza riscaricare (dal vivo: ~5 s invece di decine). In **Info**
   trovi lo stato della cache e il pulsante per svuotarla.
@@ -59,11 +63,12 @@ greta/
   il doppio della RAM del profilo, con tetto di 1 GB.
 - **Mouse sincronizzato**: un clic sullo schermo attiva il pointer lock (il puntatore sparisce
   e segue la VM); `ESC` lo libera. La schermata "Il mouse è sincronizzato" spiega la scorciatoia.
-- **Tastiera italiana**: con browser in italiano l'app digita `loadkeys it; ./startx.sh` su
-  un'unica riga — dopo `loadkeys it` gli scancode "us" dell'auto-typing sarebbero rilettuti dal
-  keymap italiano (lo `/` diventerebbe `-`), quindi tutto va digitato prima del cambio layout.
-- **Arch Linux**: al prompt digita `./networking.sh` per abilitare la rete e `./startx.sh` per il
-  desktop grafico (l'app lo digita già da sola con `auto_cmd`).
+- **Tastiera italiana**: con browser in italiano l'app digita
+  `loadkeys it; ./networking.sh; ./startx.sh` su un'unica riga — dopo `loadkeys it` gli scancode
+  "us" dell'auto-typing sarebbero rilettuti dal keymap italiano (lo `/` diventerebbe `-`),
+  quindi tutto va digitato prima del cambio layout.
+- **Arch Linux**: l'app digita già da sola `./networking.sh` (rete) e `./startx.sh` (desktop);
+  al prompt puoi sempre rieseguirli a mano.
 - **Nessuna immagine Ubuntu desktop è inclusata**: un'ISO Ubuntu con desktop pesa ~2-3 GB e
   l'host pubblico non la serve con CORS — per questo Greta OS offre un tema Ubuntu e il caricamento
   di ISO locali.

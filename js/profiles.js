@@ -20,9 +20,9 @@ const PROFILES = [
     id: "arch",
     name: "Arch Linux â€” desktop grafico",
     short: "Arch Linux (desktop)",
-    desc: "Snapshot ripristinato in console: Greta OS digita automaticamente ./startx.sh e la sessione grafica Ã¨ pronta in pochi secondi.",
+    desc: "Snapshot ripristinato in console: Greta OS digita automaticamente ./networking.sh e ./startx.sh, la sessione grafica Ã¨ pronta in pochi secondi.",
     builtin: true,
-    auto_cmd: ["./startx.sh"],
+    auto_cmd: ["./networking.sh", "./startx.sh"],
     make_options() {
       return {
         memory_size: mem(512) * MB,
