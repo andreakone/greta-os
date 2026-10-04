@@ -5,7 +5,10 @@ Un desktop Linux completo e reale che gira **nel browser**, grazie a [v86](https
 
 ## Come avviarlo
 
-Il progetto è statico: serve solo un web server qualsiasi (necessario per caricare i file `.wasm`).
+**Online**: <https://andreakone.github.io/greta-os/> — pubblicato su GitHub Pages, nessuna installazione.
+
+**In locale** (per sviluppo): il progetto è statico, serve solo un web server qualsiasi
+(necessario per caricare i file `.wasm`).
 
 ```bash
 python -m http.server 8081 --directory progetti/greta
@@ -33,8 +36,9 @@ poi apri <http://127.0.0.1:8081/>.
 greta/
 ├── index.html          # shell dell'app (topbar, dock, stage, splash, modali)
 ├── css/style.css       # tema Ubuntu/Yaru scuro
-├── js/profiles.js      # definizioni delle distro (immagini, opzioni v86, auto_cmd)
-├── js/app.js           # ciclo di vita, UI, schermo intero, screenshot
+├── js/profiles.js      # definizioni delle distro (immagini, opzioni v86, auto_cmd, RAM dinamica)
+├── js/cache.js         # cache delle immagini in IndexedDB + shim XHR
+├── js/app.js           # ciclo di vita, UI, schermo intero, pointer lock, auto-comandi
 └── vendor/             # v86 locale
     ├── libv86.js
     ├── v86.wasm
@@ -48,6 +52,16 @@ greta/
   per farsi accettare — non rimuoverlo.
 - **Rete**: la scheda di rete della VM (`ne2k`) si collega al relè WebSocket pubblico
   `wss://relay.widgetry.org/`; il traffico guest passa da lì, quindi non usare la VM per dati sensibili.
+- **Cache ISO**: le immagini scaricate vengono salvate nel browser (IndexedDB, tetto ~1,2 GB):
+  i riavvii successivi partono senza riscaricare (dal vivo: ~5 s invece di decine). In **Info**
+  trovi lo stato della cache e il pulsante per svuotarla.
+- **RAM adattata al PC**: se il browser dichiara ≥8 GB (`navigator.deviceMemory`) la VM riceve
+  il doppio della RAM del profilo, con tetto di 1 GB.
+- **Mouse sincronizzato**: un clic sullo schermo attiva il pointer lock (il puntatore sparisce
+  e segue la VM); `ESC` lo libera. La schermata "Il mouse è sincronizzato" spiega la scorciatoia.
+- **Tastiera italiana**: con browser in italiano l'app digita `loadkeys it; ./startx.sh` su
+  un'unica riga — dopo `loadkeys it` gli scancode "us" dell'auto-typing sarebbero rilettuti dal
+  keymap italiano (lo `/` diventerebbe `-`), quindi tutto va digitato prima del cambio layout.
 - **Arch Linux**: al prompt digita `./networking.sh` per abilitare la rete e `./startx.sh` per il
   desktop grafico (l'app lo digita già da sola con `auto_cmd`).
 - **Nessuna immagine Ubuntu desktop è inclusata**: un'ISO Ubuntu con desktop pesa ~2-3 GB e
