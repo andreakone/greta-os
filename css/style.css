@@ -350,3 +350,55 @@ body.vm-on #screen_holder .fs-exit { cursor: pointer; }
   .brand, .sysinfo { display: none; }
   #stage-hint { max-width: 92%; white-space: normal; text-align: center; }
 }
+
+/* ===================== touch + tastiera mobile ===================== */
+#screen_holder {
+  /* niente scroll/zoom del browser sopra la VM: i touch spettano alla guest */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#kbd-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+#kbd-bar[hidden] { display: none; }
+#phone-kbd {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font: 13px ui-monospace, Consolas, monospace;
+  resize: none;
+  overflow: hidden;
+}
+#phone-kbd:focus { outline: 2px solid var(--orange); outline-offset: 1px; }
+#phone-kbd::placeholder { color: var(--muted); }
+.kbd-keys { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: thin; }
+.kbd-key {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.kbd-key:active { background: rgba(255, 255, 255, 0.17); }
+.kbd-key.on { background: var(--orange); border-color: transparent; font-weight: 600; }
+.kbd-key.kbd-done { background: rgba(211, 47, 47, 0.4); border-color: transparent; }
+@media (max-width: 640px) {
+  #kbd-bar { flex-wrap: wrap; }
+  #phone-kbd { flex-basis: 100%; }
+  .kbd-keys { width: 100%; }
+}

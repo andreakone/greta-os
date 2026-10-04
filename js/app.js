@@ -118,6 +118,7 @@ async function shutdown() {
   S.emu = null;
   S.running = false;
   net_reset();
+  touch_model = null;
   document.body.classList.remove("vm-on");
   try { document.exitPointerLock(); } catch (e) {}
   if (emu) {
@@ -289,6 +290,243 @@ function net_rx(bytes) {
   net_blink();
 }
 
+/* ================= touch + tastiera mobile =================
+   Su dispositivi touch v86 da solo muove il cursore trascinando ma non
+   clicca: qui gestiamo noi i touch (in cattura, fermando i listener
+   originali di v86) inviando i messaggi mouse sul bus dell'emulatore:
+     - tocco breve  -> clic sinistro
+     - trascina     -> sinistro premuto (drag)
+     - premi a lungo-> tasto destro
+     - due dita     -> rotellina (mouse-wheel)
+   La tastiera usa l'ufficiale classe v86 "phone_keyboard": la textarea
+   inoltra soft keyboard (input insertText/insertLineBreak), tastiere
+   fisiche (keydown) e blocca gli input normali. */
+const TOUCH_CAPABLE = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+let touch_model = null; // posizione stimata del cursore guest (coordinate viewport)
+let kbd_ctrl_armed = false;
+
+const KBD_SC = {
+  esc: [0x01, 0x81],
+  tab: [0x0f, 0x8f],
+  bs: [0x0e, 0x8e],
+  enter: [0x1c, 0x9c],
+  left: [0x4b, 0xcb],
+  up: [0x48, 0xc8],
+  down: [0x50, 0xd0],
+  right: [0x4d, 0xcd],
+};
+
+function send_scancodes(codes) {
+  if (!S.emu) return;
+  try {
+    for (const c of codes) S.emu.bus.send("keyboard-code", c);
+  } catch (e) {}
+}
+
+function kbd_ctrl_set(on) {
+  kbd_ctrl_armed = !!on;
+  const b = $("kbd-ctrl");
+  if (b) b.classList.toggle("on", kbd_ctrl_armed);
+}
+
+function kbd_open() {
+  $("kbd-bar").hidden = false;
+  $("btn-kbd").classList.add("on");
+  try { $("phone-kbd").focus(); } catch (e) {}
+}
+
+function kbd_close() {
+  $("kbd-bar").hidden = true;
+  $("btn-kbd").classList.remove("on");
+  kbd_ctrl_set(false);
+  try { $("phone-kbd").blur(); } catch (e) {}
+}
+
+function kbd_send_ctrl_char(ch) {
+  if (!S.emu) return;
+  try {
+    S.emu.bus.send("keyboard-code", 0x1d); // Ctrl sinistro premuto
+    S.emu.keyboard_adapter.simulate_char(ch);
+    S.emu.bus.send("keyboard-code", 0x9d); // rilascio Ctrl
+  } catch (e) {}
+}
+
+function init_touch_kbd() {
+  if (!TOUCH_CAPABLE) return;
+  $("btn-kbd").hidden = false;
+  $("stage-hint").textContent =
+    "Trascina per muovere il puntatore · tocca per cliccare · tieni premuto per il tasto destro · " +
+    "due dita per scorrere · Tastiera in alto";
+
+  /* --- barra tastiera --- */
+  $("btn-kbd").addEventListener("click", () => {
+    if ($("kbd-bar").hidden) kbd_open();
+    else kbd_close();
+  });
+  // i click sui tasti speciali non devono togliere il focus dalla VM
+  $("kbd-bar").addEventListener("mousedown", (e) => {
+    if (e.target.closest && e.target.closest(".kbd-key")) e.preventDefault();
+  });
+  $("kbd-bar").addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest(".kbd-key");
+    if (!b) return;
+    const k = b.dataset.k;
+    if (k === "close") { kbd_close(); return; }
+    if (k === "ctrl") { kbd_ctrl_set(!kbd_ctrl_armed); return; }
+    if (KBD_SC[k]) {
+      const was_armed = kbd_ctrl_armed;
+      if (was_armed) {
+        send_scancodes([0x1d, ...KBD_SC[k], 0x9d]);
+        kbd_ctrl_set(false);
+      } else {
+        send_scancodes(KBD_SC[k]);
+      }
+      const inp = $("phone-kbd");
+      if (k === "bs") inp.value = was_armed
+        ? inp.value.replace(/\S+\s*$/, "") : inp.value.slice(0, -1);
+      if (k === "enter") inp.value = "";
+    }
+    try { $("phone-kbd").focus(); } catch (err) {}
+  });
+
+  /* soft keyboard: prima di v86 (cattura) per intercettare Ctrl+lettera,
+     dopov86 (bolle) per ripulire il valore accumulato */
+  window.addEventListener("input", (e) => {
+    const inp = $("phone-kbd");
+    if (e.target !== inp) return;
+    if (kbd_ctrl_armed && e.inputType === "insertText" && e.data) {
+      e.stopPropagation(); // v86 non deve inviarlo senza Ctrl
+      for (const ch of e.data) kbd_send_ctrl_char(ch);
+      inp.value = inp.value.endsWith(e.data) ? inp.value.slice(0, -e.data.length) : "";
+      kbd_ctrl_set(false);
+      return;
+    }
+    if (inp.value.length > 300) inp.value = inp.value.slice(-200);
+  }, true);
+
+  /* --- touch mouse (cattura su window, ferma i listener touch di v86) --- */
+  let st = null;      // stato del tocco a un dito
+  let two_finger = null; // stato scroll a due dita
+
+  const rect = () => $("screen_container").getBoundingClientRect();
+  const send = (name, data) => {
+    try { if (S.emu && S.emu.bus && S.running) S.emu.bus.send(name, data); } catch (e) {}
+  };
+  const click = (l, m, r) => send("mouse-click", [!!l, !!m, !!r]);
+  const in_vm = (t) => !!(t && t.closest && t.closest("#screen_holder") && !t.closest("button"));
+  const touch_by_id = (list, id) => {
+    for (let i = 0; i < list.length; i++) if (list[i].identifier === id) return list[i];
+    return null;
+  };
+  const mid_y = (e) => (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+  function move_to(x, y, px, py) {
+    const dx = x - px, dy = y - py;
+    if (!dx && !dy) return;
+    send("mouse-delta", [dx, -dy]);
+    if (S.emu && S.emu.mouse_adapter && S.emu.mouse_adapter.absolute_mouse) {
+      const r = rect();
+      send("mouse-absolute", [x - r.left, y - r.top, r.width, r.height]);
+    }
+  }
+
+  const touch_opts = { passive: false, capture: true };
+
+  window.addEventListener("touchstart", (e) => {
+    if (!in_vm(e.target)) return;
+    e.stopPropagation(); // niente handler touch doppi di v86 (fase bolle)
+    e.preventDefault();
+    $("stage-hint").classList.add("used");
+
+    if (e.touches.length >= 2) {
+      if (st) { clearTimeout(st.timer); if (st.down || st.right) click(false, false, false); st = null; }
+      two_finger = { y: mid_y(e) };
+      return;
+    }
+    if (two_finger) return;
+
+    const t = e.changedTouches[0];
+    if (!touch_model) { // prima interazione: il cursore parte dal centro
+      const r = rect();
+      touch_model = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+    move_to(t.clientX, t.clientY, touch_model.x, touch_model.y);
+    touch_model = { x: t.clientX, y: t.clientY };
+
+    st = {
+      id: t.identifier,
+      startX: t.clientX, startY: t.clientY,
+      lastX: t.clientX, lastY: t.clientY,
+      moved: false, down: false, right: false, timer: 0,
+    };
+    st.timer = setTimeout(() => {
+      if (!st || st.moved) return;
+      st.right = true;
+      click(false, false, true); // tasto destro premuto
+    }, 550);
+  }, touch_opts);
+
+  window.addEventListener("touchmove", (e) => {
+    if (!in_vm(e.target)) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (two_finger) {
+      if (e.touches.length < 2) { two_finger = null; return; }
+      const y = mid_y(e);
+      const dy = y - two_finger.y;
+      if (Math.abs(dy) >= 45) {
+        send("mouse-wheel", [dy < 0 ? 1 : -1, 0]); // convenzione v86: [segno, 0]
+        two_finger.y = y;
+      }
+      return;
+    }
+    if (!st) return;
+    const t = touch_by_id(e.changedTouches, st.id);
+    if (!t) return;
+    const dx = t.clientX - st.lastX, dy = t.clientY - st.lastY;
+    if (dx || dy) {
+      move_to(t.clientX, t.clientY, st.lastX, st.lastY);
+      st.lastX = t.clientX; st.lastY = t.clientY;
+      touch_model = { x: t.clientX, y: t.clientY };
+    }
+    if (!st.moved && Math.hypot(t.clientX - st.startX, t.clientY - st.startY) > 5) {
+      st.moved = true;
+      clearTimeout(st.timer);
+      if (!st.right) { st.down = true; click(true, false, false); } // inizio drag
+    }
+  }, touch_opts);
+
+  window.addEventListener("touchend", (e) => {
+    if (!in_vm(e.target)) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (two_finger) {
+      if (e.touches.length < 2) two_finger = null;
+      return;
+    }
+    if (!st) return;
+    const t = touch_by_id(e.changedTouches, st.id);
+    if (!t) return;
+    clearTimeout(st.timer);
+    if (st.right || st.down) click(false, false, false);
+    else { click(true, false, false); click(false, false, false); } // tocco = clic
+    touch_model = { x: t.clientX, y: t.clientY };
+    st = null;
+  }, touch_opts);
+
+  window.addEventListener("touchcancel", (e) => {
+    if (st) {
+      clearTimeout(st.timer);
+      if (st.down || st.right) click(false, false, false);
+      st = null;
+    }
+    two_finger = null;
+  }, touch_opts);
+}
+
+
 /* ================= UI topbar ================= */
 function update_ui() {
   $("btn-pause").textContent = S.running ? "Pausa" : "Riprendi";
@@ -415,8 +653,12 @@ function fill_info() {
   add("Lingua: <strong>" + (navigator.language || "?") + "</strong>" +
       (host_lang2() === "it" ? " → console della guest in italiano (<code>loadkeys it</code>)" : ""));
   add("Puntatore: <strong>" +
-      (HOST.coarse_pointer ? "tattile — per la VM è meglio un mouse" : "mouse/trackpad") +
-      "</strong> — clic sullo schermo = puntatore sincronizzato (pointer lock)");
+      (HOST.coarse_pointer ? "tattile" : "mouse/trackpad") +
+      "</strong> — " +
+      (TOUCH_CAPABLE
+        ? "trascina per muovere, tocca per cliccare, premi a lungo per il tasto destro; " +
+          "pulsante Tastiera = tastiera sullo schermo"
+        : "clic sullo schermo = puntatore sincronizzato (pointer lock)"));
   fill_cache_info();
 }
 
@@ -594,6 +836,8 @@ function init() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("info-modal").hidden) close_info();
   });
+
+  init_touch_kbd();
 
   update_ui();
   boot(PROFILES[0]);

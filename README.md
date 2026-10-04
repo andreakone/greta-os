@@ -29,6 +29,10 @@ poi apri <http://127.0.0.1:8081/>.
 - **Info** — pannello con credenziali e dettagli tecnici.
 - **Schermo intero** — il pulsante ⛶ in alto a destra; in schermo intero, portando il mouse
   nell'angolo in alto a destra compare il pulsante per tornare alla modalità finestra.
+- **Touch e tastiera su mobile** — da smartphone/tablet: trascina per muovere il puntatore,
+  tocca per cliccare, tieni premuto per il tasto destro, due dita per scorrere; il pulsante
+  **Tastiera** apre una barra in alto con campo di testo e tasti speciali (Esc, Tab, Ctrl,
+  Backspace, Invio, frecce).
 
 ## Struttura
 
@@ -63,6 +67,12 @@ greta/
   il doppio della RAM del profilo, con tetto di 1 GB.
 - **Mouse sincronizzato**: un clic sullo schermo attiva il pointer lock (il puntatore sparisce
   e segue la VM); `ESC` lo libera. La schermata "Il mouse è sincronizzato" spiega la scorciatoia.
+- **Touch**: su dispositivi touch l'app intercetta i gesture sopra lo schermo della VM e li
+  converte in eventi mouse/rotellina per la guest (tap = clic, trascina = drag con sinistro
+  premuto, lungo premuto = destro, due dita = rotellina). Il campo di testo della barra
+  **Tastiera** usa la classe ufficiale v86 `phone_keyboard`: la soft keyboard invia testo,
+  ⌫ ed Invio alla guest, mentre gli input normali della pagina restano bloccati. La barra sta
+  in alto perché la tastiera nativa copre la parte bassa dello schermo.
 - **Tastiera italiana**: con browser in italiano l'app digita
   `loadkeys it; ./networking.sh; ./startx.sh` su un'unica riga — dopo `loadkeys it` gli scancode
   "us" dell'auto-typing sarebbero rilettuti dal keymap italiano (lo `/` diventerebbe `-`),
